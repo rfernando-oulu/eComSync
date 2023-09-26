@@ -1,0 +1,527 @@
+openapi: 3.0.3
+info:
+  title: eComSync 🛒- Integration of Amazon and eBay for eCommerce Online Retail Websites
+  description: The "Amazon eBay Integration for eCommerce Websites" API is a RESTful API designed to facilitate seamless interaction between eCommerce website owners and their seller accounts on eBay and Amazon. By following a resource-oriented URL structure and utilizing JSON-encoded data, this API streamlines the process of managing and updating products across multiple sales channels.
+  version: 1.0.0
+servers:
+  - url: http://127.0.0.1:5000/api/
+tags:
+  - name: manufacturer
+    description: Everything about your Manufacturers
+  - name: product
+    description: Everything about your Products
+
+paths:
+  /manufacturer/{mid}:
+    put:
+      tags:
+        - manufacturer
+      summary: Update a Manufacturer by ID
+      description: Modify an existing manufacturer using its ID
+      parameters:
+        - name: mid
+          in: path
+          description: ID of the manufacturer to update
+          required: true
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name_update:
+                  type: string
+                  example: New Ray Ban
+                description_update:
+                  type: string
+                  example: New Ray Ban Sunglass Lenses
+                image_update:
+                  type: string
+                  example: /image/new-ray-ban.jpg
+      responses:
+        '200':
+          description: Manufacturer updated successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Manufacturer Updated Successfully
+        '400':
+          description: Bad Request
+        '404':
+          description: Manufacturer not found
+        '409':
+          description: Conflict
+        '415':
+          description: Request content type must be JSON
+    delete:
+      tags:
+        - manufacturer
+      summary: Delete a Manufacturer by ID
+      description: Removes a manufacturer from the list of manufacturers using its ID
+      parameters:
+        - name: mid
+          in: path
+          description: ID of the manufacturer to delete
+          required: true
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Manufacturer deleted successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Manufacturer Deleted Successfully
+        '404':
+          description: Manufacturer not found
+  /manufacturer/:
+    post:
+      tags:
+        - manufacturer
+      summary: Create a new Manufacturer
+      description: Adds a new manufacturer to the list of manufacturers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: Von Zipper
+                image:
+                  type: string
+                  example: /image/Von-Zipper.jpg
+                description:
+                  type: string
+                  example: Von Zipper Sunglass Lenses
+      responses:
+        '201':
+          description: Manufacturer added successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Manufacturer Added Successfully
+        '400':
+          description: Bad Request
+        '409':
+          description: Conflict
+        '415':
+          description: Request content type must be JSON
+    get:
+      tags:
+        - manufacturer
+      summary: Retrieve all Manufacturers
+      description: Returns a list of manufacturers in either short or long form
+      parameters:
+        - name: form
+          in: query
+          description: The form of the response, either 'short' or 'long' (default)
+          required: false
+          schema:
+            type: string
+            enum: [short, long]
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  manufacturers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Manufacturer'
+
+  
+  /product/:
+    post:
+      tags:
+        - product
+      summary: Create a new Product
+      description: Adds a new product to the list of products
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: New Product
+                description:
+                  type: string
+                  example: This is a new product
+                manufacturerId:
+                  type: integer
+                  example: 1
+                sku:
+                  type: string
+                  example: SKU1234
+                quantity:
+                  type: integer
+                  example: 100
+                image:
+                  type: string
+                  example: /image/new-product.jpg
+                price:
+                  type: number
+                  format: float
+                  example: 9.99
+                width:
+                  type: number
+                  format: float
+                  example: 5.5
+                date_added:
+                  type: string
+                  format: date-time
+                  example: "2023-05-15T00:00:00Z"
+      responses:
+        '201':
+          description: Product added successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Product Added Successfully
+        '400':
+          description: Bad Request
+        '409':
+          description: Conflict
+        '415':
+          description: Request content type must be JSON
+    get:
+      tags:
+        - product
+      summary: Retrieve all Products
+      description: Returns a list of products in either short or long form
+      parameters:
+        - name: form
+          in: query
+          description: The form of the response, either 'short' or 'long' (default)
+          required: false
+          schema:
+            type: string
+            enum: [short, long]
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  products:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+  /product/{id}:
+    get:
+      tags:
+        - product
+      summary: Retrieve a Product by ID
+      description: Returns a product by its ID in either short or long form
+      parameters:
+        - name: id
+          in: path
+          description: ID of the product to retrieve
+          required: true
+          schema:
+            type: integer
+            example: 1
+        - name: form
+          in: query
+          description: The form of the response, either 'short' or 'long' (default)
+          required: false
+          schema:
+            type: string
+            enum: [short, long]
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: Product not found
+    delete:
+      tags:
+        - product
+      summary: Delete a Product by ID
+      description: Removes a product from the list of products using its ID
+      parameters:
+        - name: id
+          in: path
+          description: ID of the product to delete
+          required: true
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Product deleted successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Product Deleted Successfully
+        '404':
+          description: Product not found
+    put:
+      tags:
+        - product
+      summary: Update a Product by ID
+      description: Modify an existing product using its ID
+      parameters:
+        - name: id
+          in: path
+          description: ID of the product to update
+          required: true
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name_update:
+                  type: string
+                  example: Updated Product
+                description_update:
+                  type: string
+                  example: This is an updated product
+                sku_update:
+                  type: string
+                  example: SKU5678
+                quantity_update:
+                  type: integer
+                  example: 50
+                image_update:
+                  type: string
+                  example: /image/updated-product.jpg
+                price_update:
+                  type: number
+                  format: float
+                  example: 4.99
+                width_update:
+                  type: number
+                  format: float
+                  example: 2.5
+      responses:
+        '200':
+          description: Product updated successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Product Updated Successfully
+        '400':
+          description: Bad Request
+        '404':
+          description: Product not found
+        '409':
+          description: Conflict
+        '415':
+          description: Request content type must be JSON  
+
+  /option/:
+    get:
+      tags:
+        - option
+      summary: Retrieve all Options
+      description: Returns a list of all options
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  options:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Option'
+    post:
+      tags:
+        - option
+      summary: Add a new Option
+      description: Creates a new option with provided name and image
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: The name of the option
+                  example: Option 1
+                image:
+                  type: string
+                  description: The image of the option (Optional)
+                  example: /images/option1.jpg
+      responses:
+        '201':
+          description: Option added successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Option Added Successfully
+        '400':
+          description: Missing required field
+        '409':
+          description: Integrity Error occurred
+        '415':
+          description: Request content type must be JSON
+    /option/{oid}:
+    delete:
+      tags:
+        - option
+      summary: Delete an Option
+      description: Deletes an option by ID
+      parameters:
+        - name: oid
+          in: path
+          description: Option ID to delete
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Option deleted successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Option Deleted Successfully
+        '404':
+          description: Option not found
+    put:
+      tags:
+        - option
+      summary: Update an Option
+      description: Updates an option by ID
+      parameters:
+        - name: oid
+          in: path
+          description: Option ID to update
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name_update:
+                  type: string
+                  description: The new name of the option
+                  example: Option 1 updated
+                image_update:
+                  type: string
+                  description: The new image of the option
+                  example: /images/option1_updated.jpg
+      responses:
+        '200':
+          description: Option updated successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Option Updated Successfully
+        '400':
+          description: Bad request
+        '404':
+          description: Option not found
+        '409':
+          description: Integrity Error occurred
+        '415':
+          description: Request content type must be JSON
+          
+components:
+  schemas:
+    Manufacturer:
+      type: object
+      properties:
+        manufacturer_id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Ray Ban
+        image:
+          type: string
+          example: /image/ray-ban.jpg
+        description:
+          type: string
+          example: Ray Ban Sunglass Lenses
+    Product:
+      type: object
+      properties:
+        product_id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Example Product
+        description:
+          type: string
+          example: This is an example product
+        manufacturer_id:
+          type: integer
+          example: 1
+        sku:
+          type: string
+          example: SKU1234
+        quantity:
+          type: integer
+          example: 100
+        image:
+          type: string
+          example: /image/example-product.jpg
+        price:
+          type: number
+          format: float
+          example: 9.99
+        width:
+          type: number
+          format: float
+          example: 5.5
+        date_added:
+          type: string
+          format: date-time
+          example: "2023-05-15T00:00:00Z"
+    Option:
+      type: object
+      properties:
+        option_id:
+          type: integer
+          format: int64
+          description: The ID of the option
+          example: 1
+        name:
+          type: string
+          description: The name of the option
+          example: Option 1
+        image:
+          type: string
+          description: The image of the option (Optional)
+          example: /images/option1.jpg

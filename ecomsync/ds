@@ -1,0 +1,334 @@
+import json
+from flask import Flask, Response, request, abort, jsonify
+from flask_restful import Api, Resource
+
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.exc import IntegrityError
+from datetime import datetime
+from jsonschema import validate, ValidationError, draft7_format_checker
+from werkzeug.exceptions import NotFound
+from werkzeug.routing import BaseConverter
+
+JSON = "application/json"
+
+app = Flask(__name__)
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///ecommerce.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+db = SQLAlchemy(app)
+api = Api(app)
+
+class Order(db.Model):
+    order_id = db.Column(db.Integer, primary_key=True)
+    firstname = db.Column(db.String(32), nullable=False)
+    lastname = db.Column(db.String(32), nullable=False)
+    email = db.Column(db.String(96), nullable=False)
+    telephone = db.Column(db.String(32), nullable=False)
+    product_id =  db.Column(db.Integer, db.ForeignKey("product.product_id"))
+    payment_address_1 = db.Column(db.String(128), nullable=False)
+    payment_city = db.Column(db.String(128), nullable=False)
+    payment_postcode = db.Column(db.String(10), nullable=False)
+    payment_country = db.Column(db.String(128), nullable=False)
+    total = db.Column(db.Float, nullable=False)
+    date_added = db.Column(db.DateTime, nullable=False)
+
+    product = db.relationship("Product", back_populates="order")
+
+    def serialize(self, short_form=False):
+        doc = {
+            "firstname": self.firstname,
+            "email": self.email,
+        }
+        if not short_form:
+            doc["telephone"] = self.telephone
+            doc["payment_address_1"] = self.payment_address_1
+            doc["payment_city"] = self.payment_city
+            doc["payment_postcode"] = self.payment_postcode
+            doc["payment_country"] = self.payment_country
+            doc["total"] = self.total
+            doc["date_added"] = str(self.date_added)
+
+        return doc
+
+class Product(db.Model):
+    product_id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=True)
+    description = db.Column(db.String(255), nullable=True)
+    manufacturer_id = db.Column(db.Integer, db.ForeignKey("manufacturer.manufacturer_id"))
+    sku = db.Column(db.String(64), nullable=True)
+    upc = db.Column(db.String(12), nullable=True)
+    quantity = db.Column(db.Integer, nullable=False)
+    image = db.Column(db.String(255), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    width = db.Column(db.Float, nullable=False)
+    height = db.Column(db.Float, nullable=False)
+    date_added = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    order = db.relationship("Order", back_populates="product")
+    manufacturer = db.relationship("Manufacturer", back_populates="product")
+
+    def serialize(self, short_form=False):
+        doc = {
+            "name": self.name,
+            "description": self.description,
+        }
+        if not short_form:
+            doc["manufacturer_id"] = self.manufacturer_id
+            doc["sku"] = self.sku
+            doc["upc"] = self.upc
+            doc["quantity"] = self.quantity
+            doc["image"] = self.image
+            doc["price"] = self.price
+            doc["width"] = self.width
+            doc["height"] = self.height
+            doc["date_added"] = str(self.date_added)
+                        
+        return doc
+
+class Manufacturer(db.Model):
+    manufacturer_id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(64), nullable=True)
+    image = db.Column(db.String(255), nullable=True)
+    description = db.Column(db.String(255), nullable=True)
+    
+    product = db.relationship("Product", back_populates="manufacturer")
+
+    def serialize(self, short_form=False):
+        doc = {
+            "name": self.name,
+        }
+        if not short_form:
+            doc["image"] = self.image
+            doc["description"] = self.description            
+        return doc
+
+class OrderItem(Resource):
+    def get(self):
+        if not request.json:
+            abort(415, description="Request content type must be JSON")
+
+        request_data = request.get_json()
+
+        short_form=False
+
+        form_is = request_data['form']
+
+        if form_is == 'short':
+            short_form=True
+
+
+        body = {"orders": []}
+        for order in Order.query.all():
+            item = order.serialize(short_form)
+            body["orders"].append(item)
+            
+        return Response(json.dumps(body), 200, mimetype=JSON)
+    
+    def post(self):        
+        if not request.json:
+            abort(415, description="Request content type must be JSON")
+
+        request_data = request.get_json()
+
+        firstname_is = request_data['firstname']
+        lastname_is = request_data['lastname']
+        email_is = request_data['email']
+        telephone_is = request_data['telephone']
+        product_id_is = 212
+        payment_address_1_is = request_data['payment_address_1']
+        payment_city_is = request_data['payment_city']
+        payment_postcode_is = request_data['payment_postcode']
+        payment_country_is = request_data['payment_country']
+        total_is = request_data['total']
+
+        try:
+            date_added_is = datetime.fromisoformat(request_data['date_added']) 
+        except ValidationError as e:
+            raise BadRequest(description=str(e))
+
+
+        try:
+            order_item = Order(
+                firstname = firstname_is,
+                lastname = lastname_is,
+                email = email_is,
+                telephone = telephone_is,
+                product_id = product_id_is,
+                payment_address_1 = payment_address_1_is,
+                payment_city = payment_city_is,
+                payment_postcode = payment_postcode_is,
+                payment_country = payment_country_is,
+                total = total_is,
+                date_added = date_added_is
+            )
+            db.session.add(order_item)
+            db.session.commit()
+
+        except (KeyError, ValueError, IntegrityError):
+            abort(400)
+        except IntegrityError:
+            abort(409)
+
+        responseMessage = 'Order Added Successfully'
+        response = Response(responseMessage, status=201)
+        return response
+    
+class ManufacturerConverter(BaseConverter):
+    
+    def to_python(self, brand_name):
+        db_brand = Manufacturer.query.filter_by(name=brand_name).first()
+        if db_brand is None:
+            raise NotFound
+        return db_brand
+        
+    def to_url(self, db_brand):
+        return db_brand.name
+    
+class ManufacturerItem(Resource):
+    def get(self, brand):
+        if not request.json:
+            abort(415, description="Request content type must be JSON")
+
+        request_data = request.get_json()
+
+        short_form=False
+
+        form_is = request_data['form']
+
+        if form_is == 'short':
+            short_form=True
+
+        body = {"brand": []}
+        
+        item = brand.serialize(short_form)
+        body["brand"].append(item)
+            
+        return Response(json.dumps(body), 200, mimetype=JSON)
+     
+class ManufacturerCollection(Resource):
+    def get(self):
+        if not request.json:
+            abort(415, description="Request content type must be JSON")
+
+        request_data = request.get_json()
+
+        short_form=False
+
+        form_is = request_data['form']
+
+        if form_is == 'short':
+            short_form=True
+
+
+        body = {"brands": []}
+        for brand in Manufacturer.query.all():
+            item = brand.serialize(short_form)
+            body["brands"].append(item)
+            
+        return Response(json.dumps(body), 200, mimetype=JSON)
+    
+    def post(self):        
+        if not request.json:
+            abort(415, description="Request content type must be JSON")
+
+        request_data = request.get_json()
+
+        name_is = request_data['name']
+        image_is = request_data['image']
+        description_is = request_data['description']
+
+        try:
+            manufacture_item = Manufacturer(
+                name = name_is,
+                image = image_is,
+                description = description_is
+            )
+            db.session.add(manufacture_item)
+            db.session.commit()
+
+        except (KeyError, ValueError, IntegrityError):
+            abort(400)
+        except IntegrityError:
+            abort(409)
+
+        responseMessage = 'Manufacturer Added Successfully'
+        response = Response(responseMessage, status=201)
+        return response
+    
+class ProductItem(Resource):
+    def get(self):
+        if not request.json:
+            abort(415, description="Request content type must be JSON")
+
+        request_data = request.get_json()
+
+        short_form=False
+
+        form_is = request_data['form']
+
+        if form_is == 'short':
+            short_form=True
+
+
+        body = {"products": []}
+        for product in Product.query.all():
+            item = product.serialize(short_form)
+            body["products"].append(item)
+            
+        return Response(json.dumps(body), 200, mimetype=JSON)
+    
+    def post(self):        
+        if not request.json:
+            abort(415, description="Request content type must be JSON")
+
+        request_data = request.get_json()
+
+        name_is = request_data['name']
+        description_is = request_data['description']
+        manufacturer_id_is = 123
+        sku_is = request_data['sku']
+        upc_is = request_data['upc']
+        quantity_is = request_data['quantity']
+        image_is = request_data['image']
+        price_is = int(request_data['price'])
+        width_is = float(request_data['width'])
+        height_is = float(request_data['height'])
+
+        try:
+            date_added_is = datetime.fromisoformat(request_data['date_added']) 
+        except ValidationError as e:
+            raise BadRequest(description=str(e))
+        
+
+
+
+        try:
+            product_item = Product(
+                name = name_is,
+                description = description_is,
+                manufacturer_id = manufacturer_id_is,
+                sku = sku_is,
+                upc = upc_is,
+                quantity = quantity_is,
+                image = image_is,
+                price = price_is,
+                width = width_is,
+                height = height_is,
+                date_added = date_added_is
+            )
+            db.session.add(product_item)
+            db.session.commit()
+
+        except (KeyError, ValueError, IntegrityError):
+            abort(400)
+        except IntegrityError:
+            abort(409)
+
+        responseMessage = 'Product Added Successfully'
+        response = Response(responseMessage, status=201)
+        return response
+
+app.url_map.converters["brand"] = ManufacturerConverter
+api.add_resource(ManufacturerCollection, "/api/manufacturer/")
+api.add_resource(ProductItem, "/api/product/")
+api.add_resource(OrderItem, "/api/order/")
+api.add_resource(ManufacturerItem, "/api/brand/<brand:brand>")

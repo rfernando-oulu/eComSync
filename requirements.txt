@@ -1,0 +1,8 @@
+flask
+flask-caching
+flask-restful
+flask-sqlalchemy
+jsonschema
+pytest
+pytest-coverage
+rfc3339-validator
